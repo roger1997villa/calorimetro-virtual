@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Calorímetro Virtual · Identificación de Materiales</title>
+<style>
+  :root{
+    --bg-1:#0a0e27;
+    --bg-2:#12172e;
+    --accent:#00e5ff;
+    --accent-2:#ff2e88;
+    --hot:#ff4500;
+    --cold:#1e90ff;
+    --glass:rgba(255,255,255,0.06);
+    --border:rgba(255,255,255,0.12);
+    --text:#e8ecf5;
+    --muted:#8a95b0;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',system-ui,-apple-system,sans-serif;
+    background:
+      radial-gradient(ellipse at top left,#1a1040 0%,transparent 50%),
+      radial-gradient(ellipse at bottom right,#003d4d 0%,transparent 50%),
+      linear-gradient(135deg,var(--bg-1),var(--bg-2));
+    color:var(--text);
+    min-height:100vh;
+    padding:24px;
+    overflow-x:hidden;
+  }
+  header{
+    text-align:center;
+    margin-bottom:32px;
+  }
+  h1{
+    font-size:clamp(1.6rem,4vw,2.6rem);
+    font-weight:800;
+    letter-spacing:-0.02em;
+    background:linear-gradient(90deg,var(--accent),var(--accent-2));
+    -webkit-background-clip:text;
+    background-clip:text;
+    color:transparent;
+    margin-bottom:8px;
+  }
+  header p{color:var(--muted);font-size:.95rem}
+
+  .layout{
+    display:grid;
+    grid-template-columns:1.2fr 1fr;
+    gap:24px;
+    max-width:1400px;
+    margin:0 auto;
+  }
+  @media(max-width:960px){.layout{grid-template-columns:1fr}}
+
+  .card{
+    background:var(--glass);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:24px;
+    backdrop-filter:blur(20px);
+    box-shadow:0 8px 40px rgba(0,0,0,.35);
+  }
+
+  /* --- Calorímetro visual --- */
+  .calorimeter-scene{
+    position:relative;
+    height:420px;
+    display:flex;
+    align-items:flex-end;
+    justify-content:center;
+    padding-bottom:20px;
+  }
+  .calorimeter{
+    position:relative;
+    width:220px;
+    height:280px;
+  }
+  .beaker{
+    position:absolute;
+    bottom:0;left:0;right:0;
+    height:240px;
+    border:4px solid rgba(255,255,255,.35);
+    border-top:none;
+    border-radius:0 0 20px 20px;
+    background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
+    overflow:hidden;
+    box-shadow:inset 0 -20px 40px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.4);
+  }
+  .water{
+    position:absolute;
+    bottom:0;left:0;right:0;
+    height:70%;
+    background:linear-gradient(180deg,rgba(30,144,255,.55),rgba(30,144,255,.85));
+    transition:background 1s ease;
+    border-radius:0 0 16px 16px;
+  }
+  .water::before{
+    content:'';
+    position:absolute;
+    top:-6px;left:0;right:0;height:12px;
+    background:radial-gradient(ellipse at center,rgba(255,255,255,.5),transparent 70%);
+    animation:wave 3s ease-in-out infinite;
+  }
+  @keyframes wave{0%,100%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
+
+  .object{
+    position:absolute;
+    left:50%;
+    bottom:8%;
+    transform:translateX(-50%);
+    width:70px;height:70px;
+    border-radius:14px;
+    background:radial-gradient(circle at 30% 30%,#c0c0c0,#5a5a5a);
+    box-shadow:0 0 25px rgba(255,100,0,.7),inset 0 0 15px rgba(0,0,0,.6);
+    transition:all .6s ease;
+    z-index:2;
+  }
+  .object.hot{box-shadow:0 0 40px rgba(255,69,0,1),inset 0 0 15px rgba(0,0,0,.6)}
+  .object.cold{box-shadow:0 0 30px rgba(30,144,255,.9),inset 0 0 15px rgba(0,0,0,.6)}
+
+  .steam{
+    position:absolute;
+    top:-60px;left:50%;
+    transform:translateX(-50%);
+    width:60px;height:60px;
+    opacity:0;
+    transition:opacity .5s;
+  }
+  .steam.active{opacity:1}
+  .steam span{
+    position:absolute;
+    bottom:0;
+    width:8px;height:30px;
+    background:radial-gradient(ellipse,rgba(255,255,255,.4),transparent);
+    border-radius:50%;
+    animation:rise 2.5s ease-in infinite;
+  }
+  .steam span:nth-child(1){left:10px;animation-delay:0s}
+  .steam span:nth-child(2){left:25px;animation-delay:.4s}
+  .steam span:nth-child(3){left:40px;animation-delay:.8s}
+  @keyframes rise{
+    0%{transform:translateY(0) scale(1);opacity:0}
+    20%{opacity:.8}
+    100%{transform:translateY(-70px) scale(2.5);opacity:0}
+  }
+
+  .thermometer{
+    position:absolute;
+    right:-90px;
+    bottom:60px;
+    width:24px;height:220px;
+    background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.2));
+    border-radius:12px;
+    border:2px solid rgba(255,255,255,.25);
+    overflow:hidden;
+    box-shadow:0 4px 20px rgba(0,0,0,.4);
+  }
+  .thermo-fill{
+    position:absolute;
+    bottom:0;left:0;right:0;
+    height:20%;
+    background:linear-gradient(180deg,#ff4500,#ff8c00);
+    transition:height .5s ease,background .5s ease;
+    border-radius:0 0 10px 10px;
+  }
+  .thermo-label{
+    position:absolute;
+    right:-140px;
+    bottom:60px;
+    color:var(--text);
+    font-weight:700;
+    font-size:1.4rem;
+    min-width:80px;
+    text-align:right;
+    font-variant-numeric:tabular-nums;
+  }
+
+  /* --- Controles --- */
+  .panel-title{
+    font-size:1.1rem;
+    font-weight:700;
+    margin-bottom:16px;
+    display:flex;align-items:center;gap:10px;
+    color:var(--accent);
+  }
+  .panel-title::before{
+    content:'';
+    width:4px;height:20px;
+    background:linear-gradient(180deg,var(--accent),var(--accent-2));
+    border-radius:2px;
+  }
+
+  .field{margin-bottom:18px}
+  .field label{
+    display:flex;justify-content:space-between;
+    font-size:.85rem;
+    color:var(--muted);
+    margin-bottom:6px;
+    font-weight:600;
+  }
+  .field label .value{
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+    font-weight:700;
+  }
+  input[type=range]{
+    width:100%;
+    height:6px;
+    -webkit-appearance:none;
+    background:linear-gradient(90deg,var(--cold),var(--hot));
+    border-radius:3px;
+    outline:none;
+    cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:20px;height:20px;
+    background:#fff;
+    border-radius:50%;
+    box-shadow:0 0 12px var(--accent);
+    cursor:grab;
+    transition:transform .15s;
+  }
+  input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
+  input[type=range]::-moz-range-thumb{
+    width:20px;height:20px;
+    background:#fff;border:none;border-radius:50%;
+    box-shadow:0 0 12px var(--accent);cursor:grab;
+  }
+
+  .btn{
+    width:100%;
+    padding:14px 20px;
+    border:none;
+    border-radius:12px;
+    font-size:1rem;
+    font-weight:700;
+    cursor:pointer;
+    transition:all .25s;
+    letter-spacing:.5px;
+    text-transform:uppercase;
+  }
+  .btn-primary{
+    background:linear-gradient(135deg,var(--accent),#0099ff);
+    color:#001a26;
+    box-shadow:0 6px 25px rgba(0,229,255,.4);
+  }
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,229,255,.6)}
+  .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
+  .btn-ghost{
+    background:transparent;
+    border:1px solid var(--border);
+    color:var(--text);
+    margin-top:10px;
+  }
+  .btn-ghost:hover{background:rgba(255,255,255,.05)}
+
+  /* --- Resultados --- */
+  .result{
+    margin-top:20px;
+    padding:20px;
+    border-radius:14px;
+    background:linear-gradient(135deg,rgba(0,229,255,.08),rgba(255,46,136,.08));
+    border:1px solid var(--border);
+    display:none;
+    animation:slideIn .5s ease;
+  }
+  .result.show{display:block}
+  @keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+  .result-value{
+    font-size:2.2rem;
+    font-weight:800;
+    color:var(--accent);
+    font-variant-numeric:tabular-nums;
+    text-align:center;
+  }
+  .result-unit{color:var(--muted);font-size:.9rem;text-align:center;margin-bottom:12px}
+
+  .match{
+    text-align:center;
+    padding:14px;
+    background:rgba(0,229,255,.1);
+    border-radius:10px;
+    margin-top:12px;
+    border:1px solid rgba(0,229,255,.3);
+  }
+  .match-name{
+    font-size:1.3rem;
+    font-weight:800;
+    color:#fff;
+    margin-bottom:4px;
+  }
+  .match-desc{font-size:.85rem;color:var(--muted)}
+  .match-confidence{
+    display:inline-block;
+    margin-top:8px;
+    padding:3px 12px;
+    border-radius:20px;
+    font-size:.75rem;
+    font-weight:700;
+    background:rgba(0,255,136,.15);
+    color:#00ff88;
+  }
+
+  /* --- Tabla de referencia --- */
+  table{
+    width:100%;
+    border-collapse:collapse;
+    font-size:.85rem;
+    margin-top:8px;
+  }
+  th{
+    text-align:left;
+    padding:8px 6px;
+    color:var(--muted);
+    font-weight:600;
+    border-bottom:1px solid var(--border);
+    font-size:.75rem;
+    text-transform:uppercase;
+    letter-spacing:.5px;
+  }
+  td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.04)}
+  tr.highlight td{color:var(--accent);font-weight:700;background:rgba(0,229,255,.08)}
+
+  .tag{
+    display:inline-block;
+    padding:2px 8px;
+    border-radius:6px;
+    font-size:.7rem;
+    background:rgba(255,255,255,.08);
+    color:var(--muted);
+  }
+
+  .footer-note{
+    max-width:1400px;
+    margin:32px auto 0;
+    text-align:center;
+    color:var(--muted);
+    font-size:.8rem;
+    line-height:1.6;
+  }
+  .formula{
+    font-family:'Courier New',monospace;
+    background:rgba(0,0,0,.3);
+    padding:2px 8px;
+    border-radius:6px;
+    color:var(--accent);
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>⚗️ Calorímetro Virtual</h1>
+  <p>Identifica el material desconocido mediante calorimetría · Conservación de la energía</p>
+</header>
+
+<div class="layout">
+
+  <!-- ========== COLUMNA IZQUIERDA ========== -->
+  <div>
+    <div class="card">
+      <div class="calorimeter-scene">
+        <div class="calorimeter">
+          <div class="steam" id="steam">
+            <span></span><span></span><span></span>
+          </div>
+          <div class="beaker">
+            <div class="water" id="water"></div>
+            <div class="object" id="object"></div>
+          </div>
+          <div class="thermometer">
+            <div class="thermo-fill" id="thermoFill"></div>
+          </div>
+          <div class="thermo-label" id="thermoLabel">20.0 °C</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== COLUMNA DERECHA ========== -->
+  <div>
+    <div class="card">
+      <div class="panel-title">Parámetros del Experimento</div>
+
+      <div class="field">
+        <label>Masa del objeto <span class="value" id="vMassObj">150 g</span></label>
+        <input type="range" id="massObj" min="20" max="500" value="150" step="5">
+      </div>
+
+      <div class="field">
+        <label>Temperatura inicial del objeto <span class="value" id="vTempObj">95 °C</span></label>
+        <input type="range" id="tempObj" min="25" max="300" value="95" step="1">
+      </div>
+
+      <div class="field">
+        <label>Masa del agua <span class="value" id="vMassWater">200 g</span></label>
+        <input type="range" id="massWater" min="50" max="500" value="200" step="5">
+      </div>
+
+      <div class="field">
+        <label>Temperatura inicial del agua <span class="value" id="vTempWater">20 °C</span></label>
+        <input type="range" id="tempWater" min="5" max="40" value="20" step="1">
+      </div>
+
+      <button class="btn btn-primary" id="btnSimulate">🔥 Sumergir objeto</button>
+      <button class="btn btn-ghost" id="btnReset">↻ Nuevo experimento</button>
+
+      <div class="result" id="result">
+        <div class="result-value" id="cValue">—</div>
+        <div class="result-unit">Calor específico (J/g·°C)</div>
+        <div class="match" id="matchBox">
+          <div class="match-name" id="matchName">—</div>
+          <div class="match-desc" id="matchDesc"></div>
+          <div class="match-confidence" id="matchConf">—</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:24px">
+      <div class="panel-title">Tabla de Referencia</div>
+      <table id="refTable">
+        <thead>
+          <tr><th>Material</th><th>c (J/g·°C)</th></tr>
+        </thead>
+        <tbody id="refBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<div class="footer-note">
+  <span class="formula">m₁·c₁·(T_eq − T₁) = m₂·c₂·(T_eq − T₂)</span><br>
+  El equilibrio térmico se alcanza cuando ambos cuerpos igualan su temperatura · c<sub>agua</sub> = 4.186 J/g·°C
+</div>
+
+<script>
+/* ============================================================
+   BASE DE DATOS DE MATERIALES REALES
+   c en J/(g·°C) — valores estándar a 25 °C
+   ============================================================ */
+const MATERIALS = [
+  {name:'Aluminio',    c:0.897,  desc:'Metal ligero, color plateado mate',        emoji:'🔩'},
+  {name:'Cobre',       c:0.385,  desc:'Metal rojizo, gran conductor térmico',     emoji:'🟠'},
+  {name:'Hierro',      c:0.449,  desc:'Metal ferromagnético, gris oscuro',        emoji:'⚙️'},
+  {name:'Plomo',       c:0.128,  desc:'Metal pesado, muy denso y blando',         emoji:'⚫'},
+  {name:'Oro',         c:0.129,  desc:'Metal precioso, amarillo brillante',       emoji:'🟡'},
+  {name:'Plata',       c:0.235,  desc:'Metal precioso, mejor conductor eléctrico',emoji:'⚪'},
+  {name:'Zinc',        c:0.388,  desc:'Metal gris azulado, usado en galvanizado', emoji:'🔘'},
+  {name:'Estaño',      c:0.228,  desc:'Metal plateado, usado en soldaduras',      emoji:'🥫'},
+  {name:'Vidrio',      c:0.840,  desc:'Material amorfo, transparente y frágil',   emoji:'🪟'},
+  {name:'Hielo',       c:2.090,  desc:'Agua en estado sólido cristalino',         emoji:'🧊'},
+  {name:'Granito',     c:0.790,  desc:'Roca ígnea, usada en construcción',        emoji:'🪨'},
+  {name:'Madera',      c:1.700,  desc:'Material orgánico fibroso, aislante',      emoji:'🪵'},
+  {name:'Agua',        c:4.186,  desc:'Líquido vital, altísima capacidad térmica',emoji:'💧'},
+  {name:'Alcohol',     c:2.400,  desc:'Etanol líquido, volátil y soluble',        emoji:'🍶'},
+  {name:'Glicerina',   c:2.430,  desc:'Líquido viscoso, higroscópico',            emoji:'🧴'}
+];
+
+const C_WATER = 4.186; // J/(g·°C)
+
+/* ============================================================
+   ESTADO Y REFERENCIAS DOM
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+const state = {
+  massObj:150, tempObj:95, massWater:200, tempWater:20,
+  simulated:false
+};
+
+/* Sliders */
+const sliders = [
+  {id:'massObj',   key:'massObj',   unit:' g',  decimals:0},
+  {id:'tempObj',   key:'tempObj',   unit:' °C', decimals:0},
+  {id:'massWater', key:'massWater', unit:' g',  decimals:0},
+  {id:'tempWater', key:'tempWater', unit:' °C', decimals:0}
+];
+
+function syncLabel(cfg){
+  const el = $('v' + cfg.id.charAt(0).toUpperCase() + cfg.id.slice(1));
+  el.textContent = state[cfg.key].toFixed(cfg.decimals) + cfg.unit;
+}
+
+sliders.forEach(cfg=>{
+  const slider = $(cfg.id);
+  slider.addEventListener('input', e=>{
+    state[cfg.key] = parseFloat(e.target.value);
+    syncLabel(cfg);
+    resetSimulation(false);
+  });
+  syncLabel(cfg);
+});
+
+/* ============================================================
+   NÚCLEO FÍSICO — CÁLCULO DE EQUILIBRIO TÉRMICO
+   ------------------------------------------------------------
+   Balance de energía:
+     m_obj · c_obj · (T_eq − T_obj) + m_agua · c_agua · (T_eq − T_agua) = 0
+   
+   Despejando T_eq:
+     T_eq = (m_obj·c_obj·T_obj + m_agua·c_agua·T_agua)
+            / (m_obj·c_obj + m_agua·c_agua)
+   ============================================================ */
+function equilibriumTemp(cObj){
+  const {massObj, tempObj, massWater, tempWater} = state;
+  return (massObj*cObj*tempObj + massWater*C_WATER*tempWater)
+       / (massObj*cObj + massWater*C_WATER);
+}
+
+/* ============================================================
+   MATERIAL DESCONOCIDO ALEATORIO
+   ============================================================ */
+let unknownMaterial = null;
+
+function pickUnknown(){
+  unknownMaterial = MATERIALS[Math.floor(Math.random()*MATERIALS.length)];
+  // Colores visuales
+  const colors = {
+    'Aluminio':'#b8b8b8','Cobre':'#b87333','Hierro':'#555',
+    'Plomo':'#4a4a4a','Oro':'#ffd700','Plata':'#c0c0c0',
+    'Zinc':'#a8b0b8','Estaño':'#b0b8c0','Vidrio':'#a8d8e8',
+    'Hielo':'#b0e0ff','Granito':'#8a7a6a','Madera':'#8b5a2b',
+    'Agua':'#4fa8ff','Alcohol':'#e0e0ff','Glicerina':'#d0e0f0'
+  };
+  $('object').style.background =
+    `radial-gradient(circle at 30% 30%, ${colors[unknownMaterial.name]||'#c0c0c0'}, #333)`;
+}
+
+/* ============================================================
+   SIMULACIÓN — ANIMACIÓN Y CÁLCULO
+   ============================================================ */
+let animating = false;
+
+function simulate(){
+  if(animating || state.simulated) return;
+  animating = true;
+
+  const cObj = unknownMaterial.c;
+  const Teq  = equilibriumTemp(cObj);
+
+  $('btnSimulate').disabled = true;
+  $('steam').classList.add('active');
+  $('object').classList.add('hot');
+
+  // Animación de temperatura del termómetro
+  animateThermometer(state.tempWater, Teq);
+
+  // Animación del agua (cambio de color según temperatura)
+  const t = (Teq - 20)/80; // normalizado 0-1
+  const hue = 210 - t*180; // azul (210) → rojo (30)
+  $('water').style.background =
+    `linear-gradient(180deg, hsla(${hue},80%,55%,.55), hsla(${hue},80%,45%,.85))`;
+
+  // Mostrar resultado tras animación
+  setTimeout(()=>{
+    showResult(cObj);
+    $('steam').classList.remove('active');
+    state.simulated = true;
+    animating = false;
+  }, 3200);
+}
+
+function animateThermometer(from, to){
+  const fill = $('thermoFill');
+  const label = $('thermoLabel');
+  const start = performance.now();
+  const duration = 3000;
+  // Rango visual: 0 °C -> 0%, 150 °C -> 100%
+  const toPct = v => Math.min(100, Math.max(0, (v/150)*100));
+
+  function frame(now){
+    const p = Math.min(1, (now-start)/duration);
+    const ease = 1 - Math.pow(1-p, 3); // easeOutCubic
+    const current = from + (to-from)*ease;
+    fill.style.height = toPct(current)+'%';
+    label.textContent = current.toFixed(1)+' °C';
+    if(p < 1){ requestAnimationFrame(frame); }
+    else{
+      // Estado final: color del termómetro según temperatura
+      const hue = 210 - Math.min(1,(to-20)/80)*180;
+      fill.style.background =
+        `linear-gradient(180deg, hsl(${hue},90%,55%), hsl(${hue},90%,45%))`;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   IDENTIFICACIÓN DEL MATERIAL
+   ============================================================ */
+function identifyMaterial(c){
+  // Distancia relativa mínima
+  let best = null, bestDist = Infinity;
+  MATERIALS.forEach(m=>{
+    const d = Math.abs(m.c - c)/m.c;
+    if(d < bestDist){ bestDist = d; best = m; }
+  });
+
+  let conf, confClass;
+  if(bestDist < 0.02){ conf = 'Coincidencia exacta'; }
+  else if(bestDist < 0.08){ conf = 'Alta coincidencia'; }
+  else if(bestDist < 0.20){ conf = 'Coincidencia moderada'; }
+  else { conf = 'Coincidencia baja'; }
+
+  return {material:best, dist:bestDist, confidence:conf};
+}
+
+function showResult(c){
+  const id = identifyMaterial(c);
+  $('cValue').textContent = c.toFixed(3);
+  $('matchName').textContent = `${id.material.emoji} ${id.material.name}`;
+  $('matchDesc').textContent = id.material.desc;
+  $('matchConf').textContent = `${id.confidence} · error ${(id.dist*100).toFixed(1)}%`;
+  $('result').classList.add('show');
+
+  // Resaltar fila en la tabla
+  document.querySelectorAll('#refBody tr').forEach(tr=>{
+    tr.classList.toggle('highlight', tr.dataset.name === id.material.name);
+  });
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+function resetSimulation(randomize = true){
+  state.simulated = false;
+  $('btnSimulate').disabled = false;
+  $('result').classList.remove('show');
+  $('object').classList.remove('hot','cold');
+  $('steam').classList.remove('active');
+  $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
+  $('thermoLabel').textContent = state.tempWater.toFixed(1)+' °C';
+  $('thermoFill').style.background = 'linear-gradient(180deg,#1e90ff,#0a5ab0)';
+  $('water').style.background =
+    'linear-gradient(180deg,rgba(30,144,255,.55),rgba(30,144,255,.85))';
+  document.querySelectorAll('#refBody tr').forEach(tr=>tr.classList.remove('highlight'));
+
+  if(randomize){
+    pickUnknown();
+  }
+}
+
+/* ============================================================
+   TABLA DE REFERENCIA
+   ============================================================ */
+function buildTable(){
+  const tbody = $('refBody');
+  // Ordenar por calor específico
+  [...MATERIALS].sort((a,b)=>a.c-b.c).forEach(m=>{
+    const tr = document.createElement('tr');
+    tr.dataset.name = m.name;
+    tr.innerHTML = `<td>${m.emoji} ${m.name}</td><td>${m.c.toFixed(3)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ============================================================
+   EVENTOS
+   ============================================================ */
+$('btnSimulate').addEventListener('click', simulate);
+$('btnReset').addEventListener('click', ()=>resetSimulation(true));
+
+/* ============================================================
+   INICIALIZACIÓN
+   ============================================================ */
+function init(){
+  buildTable();
+  pickUnknown();
+  resetSimulation(false);
+  // Estado inicial del termómetro
+  $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
+  $('thermoFill').style.background = 'linear-gradient(180deg,#1e90ff,#0a5ab0)';
+}
+init();
+</script>
+</body>
+</html>
