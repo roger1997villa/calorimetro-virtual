@@ -569,4 +569,485 @@ const MATERIALS = [
   {name:'Hierro',    c:0.449, desc:'Metal ferromagnético, gris oscuro',        emoji:'⚙️'},
   {name:'Plomo',     c:0.128, desc:'Metal pesado, muy denso y blando',         emoji:'⚫'},
   {name:'Oro',       c:0.129, desc:'Metal precioso, amarillo brillante',       emoji:'🟡'},
-  {name:'Plata',     c:0.235, desc:'Metal precioso, mejor conductor eléctrico',emoji:'
+  {name:'Plata',     c:0.235, desc:'Metal precioso, mejor conductor eléctrico',emoji:'⚪'},
+  {name:'Zinc',      c:0.388, desc:'Metal gris azulado, usado en galvanizado', emoji:'🔘'},
+  {name:'Estaño',    c:0.228, desc:'Metal plateado, usado en soldaduras',      emoji:'🥫'},
+  {name:'Vidrio',    c:0.840, desc:'Material amorfo, transparente y frágil',   emoji:'🪟'},
+  {name:'Granito',   c:0.790, desc:'Roca ígnea, usada en construcción',        emoji:'🪨'},
+  {name:'Madera',    c:1.700, desc:'Material orgánico fibroso, aislante',      emoji:'🪵'},
+  {name:'Glicerina', c:2.430, desc:'Líquido viscoso, higroscópico',            emoji:'🧴'}
+];
+
+const C_WATER = 4.186;
+
+/* ============================================================
+   ESTADO
+   ============================================================ */
+const $ = id => document.getElementById(id);
+
+const state = { massObj:150, tempObj:95, massWater:200, tempWater:20, simulated:false };
+
+const sliders = [
+  {id:'massObj',   key:'massObj',   unit:' g',  decimals:0},
+  {id:'tempObj',   key:'tempObj',   unit:' °C', decimals:0},
+  {id:'massWater', key:'massWater', unit:' g',  decimals:0},
+  {id:'tempWater', key:'tempWater', unit:' °C', decimals:0}
+];
+
+function syncLabel(cfg){
+  const el = $('v' + cfg.id.charAt(0).toUpperCase() + cfg.id.slice(1));
+  el.textContent = state[cfg.key].toFixed(cfg.decimals) + cfg.unit;
+}
+sliders.forEach(cfg=>{
+  const slider = $(cfg.id);
+  slider.addEventListener('input', e=>{
+    state[cfg.key] = parseFloat(e.target.value);
+    syncLabel(cfg);
+    validateInputs();
+    resetSimulation(false);
+  });
+  syncLabel(cfg);
+});
+
+/* ============================================================
+   VALIDACIÓN DE ENTRADAS
+   ============================================================ */
+function validateInputs(){
+  const alert = $('validationAlert');
+  const issues = [];
+
+  if(state.tempObj <= state.tempWater){
+    issues.push('⚠️ La temperatura del objeto debe ser MAYOR que la del agua para que fluya calor del objeto al agua.');
+  }
+  if(state.tempObj - state.tempWater < 5){
+    issues.push('⚠️ La diferencia de temperatura es muy pequeña: la identificación será muy imprecisa.');
+  }
+
+  if(issues.length){
+    alert.innerHTML = issues.join('<br>');
+    alert.className = 'alert show' + (issues.length === 1 && state.tempObj > state.tempWater ? ' warn' : '');
+    $('btnSimulate').disabled = state.tempObj <= state.tempWater;
+  } else {
+    alert.classList.remove('show');
+    $('btnSimulate').disabled = false;
+  }
+  return issues.length === 0 || state.tempObj > state.tempWater;
+}
+
+/* ============================================================
+   NÚCLEO FÍSICO
+   ============================================================ */
+function equilibriumTemp(cObj){
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const num = massObj*cObj*tempObj + massWater*C_WATER*tempWater;
+  const den = massObj*cObj + massWater*C_WATER;
+  return den !== 0 ? num/den : NaN;
+}
+
+/* ============================================================
+   MATERIAL DESCONOCIDO
+   ============================================================ */
+let unknownMaterial = null;
+let measuredTeq = null;
+let trueTeq = null;
+
+function pickUnknown(){
+  unknownMaterial = MATERIALS[Math.floor(Math.random()*MATERIALS.length)];
+  const colors = {
+    'Aluminio':'#b8b8b8','Cobre':'#b87333','Hierro':'#555','Plomo':'#4a4a4a',
+    'Oro':'#ffd700','Plata':'#c0c0c0','Zinc':'#a8b0b8','Estaño':'#b0b8c0',
+    'Vidrio':'#a8d8e8','Granito':'#8a7a6a','Madera':'#8b5a2b','Glicerina':'#d0e0f0'
+  };
+  $('object').style.background =
+    `radial-gradient(circle at 30% 30%, ${colors[unknownMaterial.name]||'#c0c0c0'}, #333)`;
+}
+
+/* ============================================================
+   GRÁFICAS
+   ============================================================ */
+let chartTemp, chartEnergy, chartCurve;
+
+const chartCommonOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{
+    legend:{labels:{color:'#e8ecf5', font:{size:11}}},
+    tooltip:{
+      backgroundColor:'rgba(10,14,39,.95)', borderColor:'#00e5ff', borderWidth:1,
+      titleColor:'#00e5ff', bodyColor:'#e8ecf5'
+    }
+  }
+};
+
+function initCharts(){
+  chartTemp = new Chart($('chartTemp'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[
+        {label:'T agua (°C)', data:[], borderColor:'#1e90ff',
+         backgroundColor:'rgba(30,144,255,.15)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'T objeto (°C)', data:[], borderColor:'#ff4500',
+         backgroundColor:'rgba(255,69,0,.10)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'T equilibrio (teórica)', data:[], borderColor:'#00e5ff',
+         borderDash:[6,4], pointRadius:0, borderWidth:1.5, fill:false}
+      ]
+    },
+    options: {...chartCommonOpts,
+      scales:{
+        x:{ title:{display:true,text:'Tiempo (s)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} },
+        y:{ title:{display:true,text:'Temperatura (°C)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+
+  chartEnergy = new Chart($('chartEnergy'), {
+    type:'bar',
+    data:{
+      labels:['Calor cedido por el objeto','Calor absorbido por el agua'],
+      datasets:[{
+        label:'|Q| (J)',
+        data:[0,0],
+        backgroundColor:['rgba(255,69,0,.7)','rgba(30,144,255,.7)'],
+        borderColor:['#ff4500','#1e90ff'],
+        borderWidth:2,
+        borderRadius:8
+      }]
+    },
+    options: {...chartCommonOpts,
+      plugins:{...chartCommonOpts.plugins, legend:{display:false}},
+      scales:{
+        x:{ ticks:{color:'#8a95b0'}, grid:{display:false} },
+        y:{ title:{display:true,text:'|Q| (J)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+
+  chartCurve = new Chart($('chartCurve'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[
+        {label:'T_eq vs c del objeto', data:[], borderColor:'#00e5ff',
+         backgroundColor:'rgba(0,229,255,.10)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'Material identificado', data:[], borderColor:'#ff2e88',
+         backgroundColor:'#ff2e88', pointRadius:7, pointHoverRadius:9, showLine:false}
+      ]
+    },
+    options: {...chartCommonOpts,
+      scales:{
+        x:{ type:'linear', title:{display:true,text:'Calor específico c (J/g·°C)',color:'#8a95b0'},
+            ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} },
+        y:{ title:{display:true,text:'T_eq (°C)',color:'#8a95b0'},
+            ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+}
+
+function updateCurveChart(highlightC){
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const points = [];
+  for(let c = 0.05; c <= 3.0; c += 0.05){
+    const Teq = (massObj*c*tempObj + massWater*C_WATER*tempWater)
+              / (massObj*c + massWater*C_WATER);
+    points.push({x:+c.toFixed(2), y:+Teq.toFixed(2)});
+  }
+  chartCurve.data.datasets[0].data = points;
+  chartCurve.data.datasets[1].data = [{x:+highlightC.toFixed(3), y:+equilibriumTemp(highlightC).toFixed(2)}];
+  chartCurve.update('none');
+}
+
+function updateTempChart(tArr, tWaterArr, tObjArr, Teq){
+  chartTemp.data.labels = tArr.map(t=>t.toFixed(1));
+  chartTemp.data.datasets[0].data = tWaterArr;
+  chartTemp.data.datasets[1].data = tObjArr;
+  chartTemp.data.datasets[2].data = tArr.map(()=>Teq);
+  chartTemp.update('none');
+}
+
+/* ============================================================
+   SIMULACIÓN — CON VALIDACIONES ROBUSTAS
+   ============================================================ */
+let animating = false;
+
+function simulate(){
+  if(animating || state.simulated) return;
+
+  // Validación previa
+  if(!validateInputs() || state.tempObj <= state.tempWater){
+    return;
+  }
+
+  animating = true;
+
+  const cObjTrue = unknownMaterial.c;
+  trueTeq = equilibriumTemp(cObjTrue);
+
+  // Ruido experimental ±1.5 %
+  const noise = (Math.random() - 0.5) * 0.03;
+  measuredTeq = trueTeq * (1 + noise);
+
+  // Cálculo del calor específico MEDIDO
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const numerator   = massWater * C_WATER * (measuredTeq - tempWater);
+  const denominator = massObj * (tempObj - measuredTeq);
+
+  let cObjMeasured;
+  if(!isFinite(numerator) || !isFinite(denominator) || Math.abs(denominator) < 1e-6){
+    // Fallback: usar el valor teórico si algo falla
+    cObjMeasured = cObjTrue;
+  } else {
+    cObjMeasured = numerator / denominator;
+    if(!isFinite(cObjMeasured) || cObjMeasured <= 0){
+      cObjMeasured = cObjTrue;
+    }
+  }
+
+  // UI
+  $('btnSimulate').disabled = true;
+  $('steam').classList.add('active');
+  $('object').classList.add('hot');
+
+  // Gráfica 1: exponenciales
+  const tArr = [], twArr = [], toArr = [];
+  const N = 60;
+  const tau = 25;
+  for(let i = 0; i <= N; i++){
+    const t = i * (3*tau)/N;
+    const frac = 1 - Math.exp(-t/tau);
+    tArr.push(t);
+    twArr.push(+(tempWater + (measuredTeq - tempWater)*frac).toFixed(2));
+    toArr.push(+(tempObj   + (measuredTeq - tempObj)*frac).toFixed(2));
+  }
+  updateTempChart(tArr, twArr, toArr, measuredTeq);
+
+  // Gráfica 2: balance de energía
+  const Qwater  = massWater * C_WATER * (measuredTeq - tempWater);
+  const Qobject = massObj * cObjMeasured * (tempObj - measuredTeq);
+  chartEnergy.data.datasets[0].data = [+Qobject.toFixed(2), +Qwater.toFixed(2)];
+  chartEnergy.update('none');
+
+  // Gráfica 3
+  updateCurveChart(cObjMeasured);
+
+  // Termómetro
+  animateThermometer(tempWater, measuredTeq);
+
+  // Color del agua
+  const tNorm = Math.min(1, Math.max(0, (measuredTeq - 20)/80));
+  const hue = 210 - tNorm*180;
+  $('water').style.background =
+    `linear-gradient(180deg, hsla(${hue},80%,55%,.55), hsla(${hue},80%,45%,.85))`;
+
+  setTimeout(()=>{
+    try {
+      showResult(cObjMeasured);
+      showSteps(cObjMeasured, measuredTeq, Qwater, Qobject);
+    } catch(err){
+      console.error('Error en showResult/showSteps:', err);
+    }
+    $('steam').classList.remove('active');
+    state.simulated = true;
+    animating = false;
+  }, 3200);
+}
+
+function animateThermometer(from, to){
+  const fill = $('thermoFill');
+  const label = $('thermoLabel');
+  const start = performance.now();
+  const duration = 3000;
+  const toPct = v => Math.min(100, Math.max(0, (v/150)*100));
+  function frame(now){
+    const p = Math.min(1, (now-start)/duration);
+    const ease = 1 - Math.pow(1-p, 3);
+    const current = from + (to-from)*ease;
+    fill.style.height = toPct(current)+'%';
+    label.textContent = current.toFixed(1)+' °C';
+    if(p < 1) requestAnimationFrame(frame);
+    else{
+      const hue = 210 - Math.min(1,Math.max(0,(to-20)/80))*180;
+      fill.style.background =
+        `linear-gradient(180deg, hsl(${hue},90%,55%), hsl(${hue},90%,45%))`;
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ============================================================
+   IDENTIFICACIÓN
+   ============================================================ */
+function identifyMaterial(c){
+  if(!isFinite(c) || c <= 0) return {material:MATERIALS[0], dist:1, confidence:'Sin datos válidos'};
+  let best = null, bestDist = Infinity;
+  MATERIALS.forEach(m=>{
+    const d = Math.abs(m.c - c)/m.c;
+    if(d < bestDist){ bestDist = d; best = m; }
+  });
+  let conf;
+  if(bestDist < 0.03)      conf = 'Coincidencia excelente';
+  else if(bestDist < 0.08) conf = 'Alta coincidencia';
+  else if(bestDist < 0.20) conf = 'Coincidencia moderada';
+  else                     conf = 'Coincidencia baja';
+  return {material:best, dist:bestDist, confidence:conf};
+}
+
+function showResult(c){
+  if(!isFinite(c)){
+    console.warn('c inválido en showResult:', c);
+    return;
+  }
+  const id = identifyMaterial(c);
+  $('cValue').textContent = c.toFixed(3);
+  $('matchName').textContent = `${id.material.emoji} ${id.material.name}`;
+  $('matchDesc').textContent = id.material.desc;
+  $('matchConf').textContent = `${id.confidence} · error relativo ${(id.dist*100).toFixed(2)}%`;
+  $('result').classList.add('show');
+
+  document.querySelectorAll('#refBody tr').forEach(tr=>{
+    tr.classList.toggle('highlight', tr.dataset.name === id.material.name);
+  });
+
+  setTimeout(()=>{
+    $('steps').scrollIntoView({behavior:'smooth', block:'start'});
+  }, 200);
+}
+
+/* ============================================================
+   PASOS
+   ============================================================ */
+function showSteps(cObj, Teq, Qwater, Qobject){
+  if(!isFinite(cObj) || !isFinite(Teq)) return;
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const cWater = C_WATER;
+
+  $('step3Body').innerHTML = `
+    Con los datos del experimento:
+    <span class="math">
+      m<sub>o</sub> = ${massObj} g &nbsp;|&nbsp; c<sub>o</sub> = ? &nbsp;|&nbsp; T<sub>o</sub> = ${tempObj} °C
+    </span>
+    <span class="math">
+      m<sub>a</sub> = ${massWater} g &nbsp;|&nbsp; c<sub>a</sub> = ${cWater} J/g·°C &nbsp;|&nbsp; T<sub>a</sub> = ${tempWater} °C
+    </span>
+    <span class="math">
+      T<sub>eq</sub> (medida) = <span class="hl">${Teq.toFixed(2)} °C</span>
+    </span>
+  `;
+
+  $('stepTeqFormula').innerHTML =
+    `T<sub>eq</sub> = ( m<sub>o</sub>·c<sub>o</sub>·T<sub>o</sub> + m<sub>a</sub>·c<sub>a</sub>·T<sub>a</sub> ) / ( m<sub>o</sub>·c<sub>o</sub> + m<sub>a</sub>·c<sub>a</sub> )`;
+  $('stepTeqValue').innerHTML =
+    `T<sub>eq</sub> = ( ${massObj}·${cObj.toFixed(3)}·${tempObj} + ${massWater}·${cWater}·${tempWater} )
+     / ( ${massObj}·${cObj.toFixed(3)} + ${massWater}·${cWater} )
+     = <span class="hl">${Teq.toFixed(2)} °C</span>`;
+
+  const num = massWater * cWater * (Teq - tempWater);
+  const den = massObj * (tempObj - Teq);
+  $('stepCValue').innerHTML =
+    `c<sub>o</sub> = [ ${massWater} · ${cWater} · (${Teq.toFixed(2)} − ${tempWater}) ]
+     / [ ${massObj} · (${tempObj} − ${Teq.toFixed(2)}) ]<br>
+     c<sub>o</sub> = ${num.toFixed(2)} / ${den.toFixed(2)}
+     = <span class="hl">${(num/den).toFixed(3)} J/g·°C</span>`;
+
+  $('step6Body').innerHTML = `
+    <strong>Calor absorbido por el agua:</strong>
+    <span class="math">
+      Q<sub>a</sub> = m<sub>a</sub>·c<sub>a</sub>·(T<sub>eq</sub> − T<sub>a</sub>)
+      = ${massWater} · ${cWater} · (${Teq.toFixed(2)} − ${tempWater})
+      = <span class="hl">+${Qwater.toFixed(2)} J</span>
+    </span>
+    <strong>Calor cedido por el objeto:</strong>
+    <span class="math">
+      Q<sub>o</sub> = m<sub>o</sub>·c<sub>o</sub>·(T<sub>eq</sub> − T<sub>o</sub>)
+      = ${massObj} · ${cObj.toFixed(3)} · (${Teq.toFixed(2)} − ${tempObj})
+      = <span class="hl">−${Qobject.toFixed(2)} J</span>
+    </span>
+    <strong>Comprobación:</strong> Q<sub>a</sub> + Q<sub>o</sub> =
+    ${Qwater.toFixed(2)} + (−${Qobject.toFixed(2)}) ≈ 0 J
+    ✔ Se cumple la conservación de la energía (dentro del ruido experimental).
+  `;
+
+  $('steps').classList.add('show');
+
+  // MathJax re-typeset (protegido)
+  try{
+    if(window.MathJax && window.MathJax.typesetPromise){
+      window.MathJax.typesetPromise([$('steps')]).catch(()=>{});
+    }
+  } catch(e){ /* silencioso */ }
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+function resetSimulation(randomize = true){
+  state.simulated = false;
+  $('btnSimulate').disabled = false;
+  $('result').classList.remove('show');
+  $('steps').classList.remove('show');
+  $('object').classList.remove('hot','cold');
+  $('steam').classList.remove('active');
+  $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
+  $('thermoLabel').textContent = state.tempWater.toFixed(1)+' °C';
+  $('thermoFill').style.background = 'linear-gradient(180deg,#1e90ff,#0a5ab0)';
+  $('water').style.background =
+    'linear-gradient(180deg,rgba(30,144,255,.55),rgba(30,144,255,.85))';
+  document.querySelectorAll('#refBody tr').forEach(tr=>tr.classList.remove('highlight'));
+
+  if(chartTemp){
+    chartTemp.data.labels = [];
+    chartTemp.data.datasets.forEach(d=>d.data=[]);
+    chartTemp.update('none');
+  }
+  if(chartEnergy){
+    chartEnergy.data.datasets[0].data = [0,0];
+    chartEnergy.update('none');
+  }
+  if(chartCurve){
+    chartCurve.data.datasets[0].data = [];
+    chartCurve.data.datasets[1].data = [];
+    chartCurve.update('none');
+  }
+
+  if(randomize) pickUnknown();
+  validateInputs();
+}
+
+/* ============================================================
+   TABLA
+   ============================================================ */
+function buildTable(){
+  const tbody = $('refBody');
+  tbody.innerHTML = '';
+  [...MATERIALS].sort((a,b)=>a.c-b.c).forEach(m=>{
+    const tr = document.createElement('tr');
+    tr.dataset.name = m.name;
+    tr.innerHTML = `<td>${m.emoji} ${m.name}</td><td>${m.c.toFixed(3)}</td>`;
+    tbody.appendChild(tr);
+  });
+}
+
+/* ============================================================
+   EVENTOS + INIT
+   ============================================================ */
+$('btnSimulate').addEventListener('click', simulate);
+$('btnReset').addEventListener('click', ()=>resetSimulation(true));
+
+// Toggle instrucciones
+$('instrHeader').addEventListener('click', ()=>{
+  $('instructions').classList.toggle('collapsed');
+});
+
+function init(){
+  buildTable();
+  initCharts();
+  pickUnknown();
+  resetSimulation(false);
+  validateInputs();
+  $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
+  $('thermoFill').style.background = 'linear-gradient(180deg,#1e90ff,#0a5ab0)';
+}
+init();
+</script>
+</body>
+</html>
