@@ -1,21 +1,30 @@
-<!DOCTYPE html>
+tml>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Calorímetro Virtual · Identificación de Materiales</title>
+<title>Calorímetro Virtual · Identificación de Materiales + Análisis</title>
+
+<!-- MathJax para fórmulas -->
+<script>
+  window.MathJax = {
+    tex: { inlineMath: [['$','$'], ['\\(','\\)']] },
+    svg: { fontCache: 'global' }
+  };
+</script>
+<script src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-svg.js"></script>
+<!-- Chart.js para gráficas -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
 <style>
   :root{
-    --bg-1:#0a0e27;
-    --bg-2:#12172e;
-    --accent:#00e5ff;
-    --accent-2:#ff2e88;
-    --hot:#ff4500;
-    --cold:#1e90ff;
+    --bg-1:#0a0e27; --bg-2:#12172e;
+    --accent:#00e5ff; --accent-2:#ff2e88;
+    --hot:#ff4500; --cold:#1e90ff;
     --glass:rgba(255,255,255,0.06);
     --border:rgba(255,255,255,0.12);
-    --text:#e8ecf5;
-    --muted:#8a95b0;
+    --text:#e8ecf5; --muted:#8a95b0;
+    --ok:#00ff88;
   }
   *{box-sizing:border-box;margin:0;padding:0}
   body{
@@ -24,118 +33,75 @@
       radial-gradient(ellipse at top left,#1a1040 0%,transparent 50%),
       radial-gradient(ellipse at bottom right,#003d4d 0%,transparent 50%),
       linear-gradient(135deg,var(--bg-1),var(--bg-2));
-    color:var(--text);
-    min-height:100vh;
-    padding:24px;
-    overflow-x:hidden;
+    color:var(--text); min-height:100vh; padding:24px; overflow-x:hidden;
   }
-  header{
-    text-align:center;
-    margin-bottom:32px;
-  }
+  header{text-align:center;margin-bottom:32px}
   h1{
-    font-size:clamp(1.6rem,4vw,2.6rem);
-    font-weight:800;
-    letter-spacing:-0.02em;
+    font-size:clamp(1.6rem,4vw,2.6rem); font-weight:800; letter-spacing:-0.02em;
     background:linear-gradient(90deg,var(--accent),var(--accent-2));
-    -webkit-background-clip:text;
-    background-clip:text;
-    color:transparent;
+    -webkit-background-clip:text; background-clip:text; color:transparent;
     margin-bottom:8px;
   }
   header p{color:var(--muted);font-size:.95rem}
 
   .layout{
-    display:grid;
-    grid-template-columns:1.2fr 1fr;
-    gap:24px;
-    max-width:1400px;
-    margin:0 auto;
+    display:grid; grid-template-columns:1.15fr 1fr;
+    gap:24px; max-width:1500px; margin:0 auto;
   }
-  @media(max-width:960px){.layout{grid-template-columns:1fr}}
+  @media(max-width:1100px){.layout{grid-template-columns:1fr}}
 
   .card{
-    background:var(--glass);
-    border:1px solid var(--border);
-    border-radius:20px;
-    padding:24px;
-    backdrop-filter:blur(20px);
+    background:var(--glass); border:1px solid var(--border);
+    border-radius:20px; padding:24px; backdrop-filter:blur(20px);
     box-shadow:0 8px 40px rgba(0,0,0,.35);
   }
+  .card + .card{margin-top:24px}
 
-  /* --- Calorímetro visual --- */
+  /* Calorímetro visual */
   .calorimeter-scene{
-    position:relative;
-    height:420px;
-    display:flex;
-    align-items:flex-end;
-    justify-content:center;
-    padding-bottom:20px;
+    position:relative; height:420px; display:flex;
+    align-items:flex-end; justify-content:center; padding-bottom:20px;
   }
-  .calorimeter{
-    position:relative;
-    width:220px;
-    height:280px;
-  }
+  .calorimeter{position:relative;width:220px;height:280px}
   .beaker{
-    position:absolute;
-    bottom:0;left:0;right:0;
-    height:240px;
-    border:4px solid rgba(255,255,255,.35);
-    border-top:none;
+    position:absolute; bottom:0;left:0;right:0; height:240px;
+    border:4px solid rgba(255,255,255,.35); border-top:none;
     border-radius:0 0 20px 20px;
     background:linear-gradient(180deg,rgba(255,255,255,.05),rgba(255,255,255,.02));
     overflow:hidden;
     box-shadow:inset 0 -20px 40px rgba(0,0,0,.4),0 10px 30px rgba(0,0,0,.4);
   }
   .water{
-    position:absolute;
-    bottom:0;left:0;right:0;
-    height:70%;
+    position:absolute; bottom:0;left:0;right:0; height:70%;
     background:linear-gradient(180deg,rgba(30,144,255,.55),rgba(30,144,255,.85));
-    transition:background 1s ease;
-    border-radius:0 0 16px 16px;
+    transition:background 1s ease; border-radius:0 0 16px 16px;
   }
   .water::before{
-    content:'';
-    position:absolute;
-    top:-6px;left:0;right:0;height:12px;
+    content:''; position:absolute; top:-6px;left:0;right:0;height:12px;
     background:radial-gradient(ellipse at center,rgba(255,255,255,.5),transparent 70%);
     animation:wave 3s ease-in-out infinite;
   }
   @keyframes wave{0%,100%{transform:translateX(-5px)}50%{transform:translateX(5px)}}
 
   .object{
-    position:absolute;
-    left:50%;
-    bottom:8%;
-    transform:translateX(-50%);
-    width:70px;height:70px;
-    border-radius:14px;
+    position:absolute; left:50%; bottom:8%; transform:translateX(-50%);
+    width:70px;height:70px; border-radius:14px;
     background:radial-gradient(circle at 30% 30%,#c0c0c0,#5a5a5a);
     box-shadow:0 0 25px rgba(255,100,0,.7),inset 0 0 15px rgba(0,0,0,.6);
-    transition:all .6s ease;
-    z-index:2;
+    transition:all .6s ease; z-index:2;
   }
   .object.hot{box-shadow:0 0 40px rgba(255,69,0,1),inset 0 0 15px rgba(0,0,0,.6)}
   .object.cold{box-shadow:0 0 30px rgba(30,144,255,.9),inset 0 0 15px rgba(0,0,0,.6)}
 
   .steam{
-    position:absolute;
-    top:-60px;left:50%;
-    transform:translateX(-50%);
-    width:60px;height:60px;
-    opacity:0;
-    transition:opacity .5s;
+    position:absolute; top:-60px;left:50%; transform:translateX(-50%);
+    width:60px;height:60px; opacity:0; transition:opacity .5s;
   }
   .steam.active{opacity:1}
   .steam span{
-    position:absolute;
-    bottom:0;
-    width:8px;height:30px;
+    position:absolute; bottom:0; width:8px;height:30px;
     background:radial-gradient(ellipse,rgba(255,255,255,.4),transparent);
-    border-radius:50%;
-    animation:rise 2.5s ease-in infinite;
+    border-radius:50%; animation:rise 2.5s ease-in infinite;
   }
   .steam span:nth-child(1){left:10px;animation-delay:0s}
   .steam span:nth-child(2){left:25px;animation-delay:.4s}
@@ -147,214 +113,161 @@
   }
 
   .thermometer{
-    position:absolute;
-    right:-90px;
-    bottom:60px;
-    width:24px;height:220px;
+    position:absolute; right:-90px; bottom:60px; width:24px;height:220px;
     background:linear-gradient(90deg,rgba(255,255,255,.1),rgba(255,255,255,.2));
-    border-radius:12px;
-    border:2px solid rgba(255,255,255,.25);
-    overflow:hidden;
-    box-shadow:0 4px 20px rgba(0,0,0,.4);
+    border-radius:12px; border:2px solid rgba(255,255,255,.25);
+    overflow:hidden; box-shadow:0 4px 20px rgba(0,0,0,.4);
   }
   .thermo-fill{
-    position:absolute;
-    bottom:0;left:0;right:0;
-    height:20%;
+    position:absolute; bottom:0;left:0;right:0; height:20%;
     background:linear-gradient(180deg,#ff4500,#ff8c00);
     transition:height .5s ease,background .5s ease;
     border-radius:0 0 10px 10px;
   }
   .thermo-label{
-    position:absolute;
-    right:-140px;
-    bottom:60px;
-    color:var(--text);
-    font-weight:700;
-    font-size:1.4rem;
-    min-width:80px;
-    text-align:right;
-    font-variant-numeric:tabular-nums;
+    position:absolute; right:-140px; bottom:60px; color:var(--text);
+    font-weight:700; font-size:1.4rem; min-width:80px;
+    text-align:right; font-variant-numeric:tabular-nums;
   }
 
-  /* --- Controles --- */
   .panel-title{
-    font-size:1.1rem;
-    font-weight:700;
-    margin-bottom:16px;
-    display:flex;align-items:center;gap:10px;
-    color:var(--accent);
+    font-size:1.1rem; font-weight:700; margin-bottom:16px;
+    display:flex; align-items:center; gap:10px; color:var(--accent);
   }
   .panel-title::before{
-    content:'';
-    width:4px;height:20px;
+    content:''; width:4px;height:20px;
     background:linear-gradient(180deg,var(--accent),var(--accent-2));
     border-radius:2px;
   }
 
   .field{margin-bottom:18px}
   .field label{
-    display:flex;justify-content:space-between;
-    font-size:.85rem;
-    color:var(--muted);
-    margin-bottom:6px;
-    font-weight:600;
+    display:flex; justify-content:space-between;
+    font-size:.85rem; color:var(--muted); margin-bottom:6px; font-weight:600;
   }
-  .field label .value{
-    color:var(--accent);
-    font-variant-numeric:tabular-nums;
-    font-weight:700;
-  }
+  .field label .value{color:var(--accent);font-variant-numeric:tabular-nums;font-weight:700}
+
   input[type=range]{
-    width:100%;
-    height:6px;
-    -webkit-appearance:none;
+    width:100%; height:6px; -webkit-appearance:none;
     background:linear-gradient(90deg,var(--cold),var(--hot));
-    border-radius:3px;
-    outline:none;
-    cursor:pointer;
+    border-radius:3px; outline:none; cursor:pointer;
   }
   input[type=range]::-webkit-slider-thumb{
-    -webkit-appearance:none;
-    width:20px;height:20px;
-    background:#fff;
-    border-radius:50%;
-    box-shadow:0 0 12px var(--accent);
-    cursor:grab;
+    -webkit-appearance:none; width:20px;height:20px; background:#fff;
+    border-radius:50%; box-shadow:0 0 12px var(--accent); cursor:grab;
     transition:transform .15s;
   }
   input[type=range]::-webkit-slider-thumb:hover{transform:scale(1.2)}
   input[type=range]::-moz-range-thumb{
-    width:20px;height:20px;
-    background:#fff;border:none;border-radius:50%;
+    width:20px;height:20px; background:#fff;border:none;border-radius:50%;
     box-shadow:0 0 12px var(--accent);cursor:grab;
   }
 
   .btn{
-    width:100%;
-    padding:14px 20px;
-    border:none;
-    border-radius:12px;
-    font-size:1rem;
-    font-weight:700;
-    cursor:pointer;
-    transition:all .25s;
-    letter-spacing:.5px;
-    text-transform:uppercase;
+    width:100%; padding:14px 20px; border:none; border-radius:12px;
+    font-size:1rem; font-weight:700; cursor:pointer;
+    transition:all .25s; letter-spacing:.5px; text-transform:uppercase;
   }
   .btn-primary{
     background:linear-gradient(135deg,var(--accent),#0099ff);
-    color:#001a26;
-    box-shadow:0 6px 25px rgba(0,229,255,.4);
+    color:#001a26; box-shadow:0 6px 25px rgba(0,229,255,.4);
   }
   .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px rgba(0,229,255,.6)}
   .btn-primary:disabled{opacity:.4;cursor:not-allowed;transform:none}
   .btn-ghost{
-    background:transparent;
-    border:1px solid var(--border);
-    color:var(--text);
-    margin-top:10px;
+    background:transparent; border:1px solid var(--border);
+    color:var(--text); margin-top:10px;
   }
   .btn-ghost:hover{background:rgba(255,255,255,.05)}
 
-  /* --- Resultados --- */
   .result{
-    margin-top:20px;
-    padding:20px;
-    border-radius:14px;
+    margin-top:20px; padding:20px; border-radius:14px;
     background:linear-gradient(135deg,rgba(0,229,255,.08),rgba(255,46,136,.08));
-    border:1px solid var(--border);
-    display:none;
-    animation:slideIn .5s ease;
+    border:1px solid var(--border); display:none; animation:slideIn .5s ease;
   }
   .result.show{display:block}
   @keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
   .result-value{
-    font-size:2.2rem;
-    font-weight:800;
-    color:var(--accent);
-    font-variant-numeric:tabular-nums;
-    text-align:center;
+    font-size:2.2rem; font-weight:800; color:var(--accent);
+    font-variant-numeric:tabular-nums; text-align:center;
   }
   .result-unit{color:var(--muted);font-size:.9rem;text-align:center;margin-bottom:12px}
 
   .match{
-    text-align:center;
-    padding:14px;
-    background:rgba(0,229,255,.1);
-    border-radius:10px;
-    margin-top:12px;
-    border:1px solid rgba(0,229,255,.3);
+    text-align:center; padding:14px; background:rgba(0,229,255,.1);
+    border-radius:10px; margin-top:12px; border:1px solid rgba(0,229,255,.3);
   }
-  .match-name{
-    font-size:1.3rem;
-    font-weight:800;
-    color:#fff;
-    margin-bottom:4px;
-  }
+  .match-name{font-size:1.3rem;font-weight:800;color:#fff;margin-bottom:4px}
   .match-desc{font-size:.85rem;color:var(--muted)}
   .match-confidence{
-    display:inline-block;
-    margin-top:8px;
-    padding:3px 12px;
-    border-radius:20px;
-    font-size:.75rem;
-    font-weight:700;
-    background:rgba(0,255,136,.15);
-    color:#00ff88;
+    display:inline-block; margin-top:8px; padding:3px 12px;
+    border-radius:20px; font-size:.75rem; font-weight:700;
+    background:rgba(0,255,136,.15); color:var(--ok);
   }
 
-  /* --- Tabla de referencia --- */
-  table{
-    width:100%;
-    border-collapse:collapse;
-    font-size:.85rem;
-    margin-top:8px;
+  /* Pasos de explicación */
+  .steps{display:none;margin-top:20px}
+  .steps.show{display:block;animation:slideIn .5s ease}
+  .step{
+    padding:14px 16px; border-radius:12px; margin-bottom:12px;
+    background:rgba(0,0,0,.25); border-left:4px solid var(--accent);
   }
+  .step-title{
+    font-size:.8rem; text-transform:uppercase; letter-spacing:1px;
+    color:var(--accent); font-weight:700; margin-bottom:8px;
+  }
+  .step-body{font-size:.92rem; line-height:1.7; color:#d5dae8}
+  .step-body .math{
+    display:block; margin:8px 0; padding:10px 14px;
+    background:rgba(0,229,255,.06); border-radius:8px;
+    border-left:2px solid var(--accent);
+    font-family:'Courier New',monospace; font-size:.88rem;
+    overflow-x:auto; white-space:nowrap;
+  }
+  .step-body .hl{color:var(--accent-2);font-weight:700}
+  .step-body .num{color:var(--accent);font-weight:700}
+
+  /* Gráficas */
+  .chart-wrap{
+    position:relative; height:280px; margin-top:12px;
+    padding:8px; background:rgba(0,0,0,.2); border-radius:12px;
+  }
+  .chart-explain{
+    font-size:.85rem; color:var(--muted); line-height:1.7;
+    margin-top:12px; padding:12px 14px;
+    background:rgba(255,46,136,.06); border-radius:10px;
+    border-left:3px solid var(--accent-2);
+  }
+  .chart-explain strong{color:var(--text)}
+
+  table{width:100%;border-collapse:collapse;font-size:.85rem;margin-top:8px}
   th{
-    text-align:left;
-    padding:8px 6px;
-    color:var(--muted);
-    font-weight:600;
-    border-bottom:1px solid var(--border);
-    font-size:.75rem;
-    text-transform:uppercase;
-    letter-spacing:.5px;
+    text-align:left; padding:8px 6px; color:var(--muted);
+    font-weight:600; border-bottom:1px solid var(--border);
+    font-size:.75rem; text-transform:uppercase; letter-spacing:.5px;
   }
   td{padding:8px 6px;border-bottom:1px solid rgba(255,255,255,.04)}
   tr.highlight td{color:var(--accent);font-weight:700;background:rgba(0,229,255,.08)}
 
-  .tag{
-    display:inline-block;
-    padding:2px 8px;
-    border-radius:6px;
-    font-size:.7rem;
-    background:rgba(255,255,255,.08);
-    color:var(--muted);
-  }
-
   .footer-note{
-    max-width:1400px;
-    margin:32px auto 0;
-    text-align:center;
-    color:var(--muted);
-    font-size:.8rem;
-    line-height:1.6;
+    max-width:1500px; margin:32px auto 0; text-align:center;
+    color:var(--muted); font-size:.8rem; line-height:1.6;
   }
   .formula{
-    font-family:'Courier New',monospace;
-    background:rgba(0,0,0,.3);
-    padding:2px 8px;
-    border-radius:6px;
-    color:var(--accent);
+    font-family:'Courier New',monospace; background:rgba(0,0,0,.3);
+    padding:2px 8px; border-radius:6px; color:var(--accent);
+  }
+  .badge{
+    display:inline-block; padding:2px 8px; border-radius:6px;
+    font-size:.7rem; background:rgba(255,255,255,.08); color:var(--muted);
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>⚗️ Calorímetro Virtual</h1>
+  <h1>⚗️ Calorímetro Virtual + Análisis Físico</h1>
   <p>Identifica el material desconocido mediante calorimetría · Conservación de la energía</p>
 </header>
 
@@ -365,18 +278,47 @@
     <div class="card">
       <div class="calorimeter-scene">
         <div class="calorimeter">
-          <div class="steam" id="steam">
-            <span></span><span></span><span></span>
-          </div>
+          <div class="steam" id="steam"><span></span><span></span><span></span></div>
           <div class="beaker">
             <div class="water" id="water"></div>
             <div class="object" id="object"></div>
           </div>
-          <div class="thermometer">
-            <div class="thermo-fill" id="thermoFill"></div>
-          </div>
+          <div class="thermometer"><div class="thermo-fill" id="thermoFill"></div></div>
           <div class="thermo-label" id="thermoLabel">20.0 °C</div>
         </div>
+      </div>
+    </div>
+
+    <!-- Gráficas -->
+    <div class="card">
+      <div class="panel-title">📈 Análisis Gráfico</div>
+
+      <div class="badge">Gráfica 1 · Evolución temporal de la temperatura</div>
+      <div class="chart-wrap"><canvas id="chartTemp"></canvas></div>
+      <div class="chart-explain">
+        <strong>¿Qué muestra?</strong> A medida que el objeto caliente se sumerge en el agua,
+        ambos intercambian calor. La temperatura del agua <em>sube</em> y la del objeto <em>baja</em>
+        hasta que ambas se encuentran en el mismo valor: la <strong>temperatura de equilibrio</strong> $T_{eq}$.
+        El eje X representa el tiempo (s) y el eje Y la temperatura (°C).
+        La línea punteada horizontal marca la $T_{eq}$ teórica.
+      </div>
+
+      <div class="badge" style="margin-top:20px;display:inline-block">Gráfica 2 · Balance de energía</div>
+      <div class="chart-wrap"><canvas id="chartEnergy"></canvas></div>
+      <div class="chart-explain">
+        <strong>¿Qué muestra?</strong> La energía <em>cedida</em> por el objeto caliente (barras rojas)
+        y la energía <em>absorbida</em> por el agua (barras azules). Por la <strong>ley de conservación
+        de la energía</strong>, en un sistema aislado: $|Q_{cedido}| = |Q_{absorbido}|$.
+        Si los valores coinciden (salvo redondeo), el experimento es físicamente consistente.
+      </div>
+
+      <div class="badge" style="margin-top:20px;display:inline-block">Gráfica 3 · Sensibilidad de T_eq frente a c</div>
+      <div class="chart-wrap"><canvas id="chartCurve"></canvas></div>
+      <div class="chart-explain">
+        <strong>¿Qué muestra?</strong> Cómo variaría la temperatura de equilibrio si el material
+        tuviera otro calor específico. La curva es <strong>monótonamente creciente</strong>:
+        a mayor $c$ del objeto, mayor $T_{eq}$. El punto marcado es el material identificado;
+        esto permite ver <em>cuán sensible</em> es el resultado a errores de medición.
       </div>
     </div>
   </div>
@@ -390,17 +332,14 @@
         <label>Masa del objeto <span class="value" id="vMassObj">150 g</span></label>
         <input type="range" id="massObj" min="20" max="500" value="150" step="5">
       </div>
-
       <div class="field">
         <label>Temperatura inicial del objeto <span class="value" id="vTempObj">95 °C</span></label>
         <input type="range" id="tempObj" min="25" max="300" value="95" step="1">
       </div>
-
       <div class="field">
         <label>Masa del agua <span class="value" id="vMassWater">200 g</span></label>
         <input type="range" id="massWater" min="50" max="500" value="200" step="5">
       </div>
-
       <div class="field">
         <label>Temperatura inicial del agua <span class="value" id="vTempWater">20 °C</span></label>
         <input type="range" id="tempWater" min="5" max="40" value="20" step="1">
@@ -418,14 +357,71 @@
           <div class="match-confidence" id="matchConf">—</div>
         </div>
       </div>
+
+      <!-- EXPLICACIÓN PASO A PASO -->
+      <div class="steps" id="steps">
+        <div class="panel-title" style="margin-top:8px">🧮 Desarrollo paso a paso</div>
+
+        <div class="step">
+          <div class="step-title">Paso 1 · Ley de conservación de la energía</div>
+          <div class="step-body">
+            En un calorímetro ideal (aislado), el calor cedido por el cuerpo caliente es igual al calor
+            absorbido por el cuerpo frío:
+            <span class="math">Q<sub>objeto</sub> + Q<sub>agua</sub> = 0</span>
+            Es decir: <span class="hl">|Q<sub>cedido</sub>| = |Q<sub>absorbido</sub>|</span>.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Paso 2 · Ecuación calorimétrica</div>
+          <div class="step-body">
+            Cada calor se calcula como $Q = m \cdot c \cdot \Delta T$:
+            <span class="math">
+              m<sub>o</sub>·c<sub>o</sub>·(T<sub>eq</sub> − T<sub>o</sub>) + m<sub>a</sub>·c<sub>a</sub>·(T<sub>eq</sub> − T<sub>a</sub>) = 0
+            </span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Paso 3 · Sustitución de datos</div>
+          <div class="step-body" id="step3Body"></div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Paso 4 · Despeje de T<sub>eq</sub></div>
+          <div class="step-body">
+            Resolviendo para la temperatura de equilibrio:
+            <span class="math" id="stepTeqFormula"></span>
+            <span class="math" id="stepTeqValue"></span>
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Paso 5 · Cálculo del calor específico del objeto</div>
+          <div class="step-body">
+            Despejando $c_o$ de la ecuación calorimétrica:
+            <span class="math">
+              c<sub>o</sub> = [ m<sub>a</sub>·c<sub>a</sub>·(T<sub>eq</sub> − T<sub>a</sub>) ] / [ m<sub>o</sub>·(T<sub>o</sub> − T<sub>eq</sub>) ]
+            </span>
+            <span class="math" id="stepCValue"></span>
+            Este valor se compara con la tabla de referencia para identificar el material.
+          </div>
+        </div>
+
+        <div class="step">
+          <div class="step-title">Paso 6 · Balance energético (comprobación)</div>
+          <div class="step-body" id="step6Body"></div>
+        </div>
+      </div>
     </div>
 
-    <div class="card" style="margin-top:24px">
-      <div class="panel-title">Tabla de Referencia</div>
+    <div class="card">
+      <div class="panel-title">Tabla de Referencia · Calores específicos</div>
+      <p style="font-size:.78rem;color:var(--muted);margin-bottom:8px">
+        Valores estándar a 25 °C (J/g·°C). Se resalta el material identificado.
+      </p>
       <table id="refTable">
-        <thead>
-          <tr><th>Material</th><th>c (J/g·°C)</th></tr>
-        </thead>
+        <thead><tr><th>Material</th><th>c (J/g·°C)</th></tr></thead>
         <tbody id="refBody"></tbody>
       </table>
     </div>
@@ -434,44 +430,35 @@
 </div>
 
 <div class="footer-note">
-  <span class="formula">m₁·c₁·(T_eq − T₁) = m₂·c₂·(T_eq − T₂)</span><br>
+  <span class="formula">m₁·c₁·(T_eq − T₁) + m₂·c₂·(T_eq − T₂) = 0</span><br>
   El equilibrio térmico se alcanza cuando ambos cuerpos igualan su temperatura · c<sub>agua</sub> = 4.186 J/g·°C
 </div>
 
 <script>
 /* ============================================================
-   BASE DE DATOS DE MATERIALES REALES
-   c en J/(g·°C) — valores estándar a 25 °C
+   BASE DE DATOS DE MATERIALES (SÓLIDOS Y LÍQUIDOS ENCERRADOS)
    ============================================================ */
 const MATERIALS = [
-  {name:'Aluminio',    c:0.897,  desc:'Metal ligero, color plateado mate',        emoji:'🔩'},
-  {name:'Cobre',       c:0.385,  desc:'Metal rojizo, gran conductor térmico',     emoji:'🟠'},
-  {name:'Hierro',      c:0.449,  desc:'Metal ferromagnético, gris oscuro',        emoji:'⚙️'},
-  {name:'Plomo',       c:0.128,  desc:'Metal pesado, muy denso y blando',         emoji:'⚫'},
-  {name:'Oro',         c:0.129,  desc:'Metal precioso, amarillo brillante',       emoji:'🟡'},
-  {name:'Plata',       c:0.235,  desc:'Metal precioso, mejor conductor eléctrico',emoji:'⚪'},
-  {name:'Zinc',        c:0.388,  desc:'Metal gris azulado, usado en galvanizado', emoji:'🔘'},
-  {name:'Estaño',      c:0.228,  desc:'Metal plateado, usado en soldaduras',      emoji:'🥫'},
-  {name:'Vidrio',      c:0.840,  desc:'Material amorfo, transparente y frágil',   emoji:'🪟'},
-  {name:'Hielo',       c:2.090,  desc:'Agua en estado sólido cristalino',         emoji:'🧊'},
-  {name:'Granito',     c:0.790,  desc:'Roca ígnea, usada en construcción',        emoji:'🪨'},
-  {name:'Madera',      c:1.700,  desc:'Material orgánico fibroso, aislante',      emoji:'🪵'},
-  {name:'Agua',        c:4.186,  desc:'Líquido vital, altísima capacidad térmica',emoji:'💧'},
-  {name:'Alcohol',     c:2.400,  desc:'Etanol líquido, volátil y soluble',        emoji:'🍶'},
-  {name:'Glicerina',   c:2.430,  desc:'Líquido viscoso, higroscópico',            emoji:'🧴'}
+  {name:'Aluminio',  c:0.897, desc:'Metal ligero, color plateado mate',        emoji:'🔩'},
+  {name:'Cobre',     c:0.385, desc:'Metal rojizo, gran conductor térmico',     emoji:'🟠'},
+  {name:'Hierro',    c:0.449, desc:'Metal ferromagnético, gris oscuro',        emoji:'⚙️'},
+  {name:'Plomo',     c:0.128, desc:'Metal pesado, muy denso y blando',         emoji:'⚫'},
+  {name:'Oro',       c:0.129, desc:'Metal precioso, amarillo brillante',       emoji:'🟡'},
+  {name:'Plata',     c:0.235, desc:'Metal precioso, mejor conductor eléctrico',emoji:'⚪'},
+  {name:'Zinc',      c:0.388, desc:'Metal gris azulado, usado en galvanizado', emoji:'🔘'},
+  {name:'Estaño',    c:0.228, desc:'Metal plateado, usado en soldaduras',      emoji:'🥫'},
+  {name:'Vidrio',    c:0.840, desc:'Material amorfo, transparente y frágil',   emoji:'🪟'},
+  {name:'Granito',   c:0.790, desc:'Roca ígnea, usada en construcción',        emoji:'🪨'},
+  {name:'Madera',    c:1.700, desc:'Material orgánico fibroso, aislante',      emoji:'🪵'},
+  {name:'Glicerina', c:2.430, desc:'Líquido viscoso, higroscópico',            emoji:'🧴'}
 ];
 
-const C_WATER = 4.186; // J/(g·°C)
+const C_WATER = 4.186;
 
-/* ============================================================
-   ESTADO Y REFERENCIAS DOM
-   ============================================================ */
+/* ============================================================ */
 const $ = id => document.getElementById(id);
 
-const state = {
-  massObj:150, tempObj:95, massWater:200, tempWater:20,
-  simulated:false
-};
+const state = { massObj:150, tempObj:95, massWater:200, tempWater:20, simulated:false };
 
 /* Sliders */
 const sliders = [
@@ -485,7 +472,6 @@ function syncLabel(cfg){
   const el = $('v' + cfg.id.charAt(0).toUpperCase() + cfg.id.slice(1));
   el.textContent = state[cfg.key].toFixed(cfg.decimals) + cfg.unit;
 }
-
 sliders.forEach(cfg=>{
   const slider = $(cfg.id);
   slider.addEventListener('input', e=>{
@@ -497,14 +483,8 @@ sliders.forEach(cfg=>{
 });
 
 /* ============================================================
-   NÚCLEO FÍSICO — CÁLCULO DE EQUILIBRIO TÉRMICO
-   ------------------------------------------------------------
-   Balance de energía:
-     m_obj · c_obj · (T_eq − T_obj) + m_agua · c_agua · (T_eq − T_agua) = 0
-   
-   Despejando T_eq:
-     T_eq = (m_obj·c_obj·T_obj + m_agua·c_agua·T_agua)
-            / (m_obj·c_obj + m_agua·c_agua)
+   NÚCLEO FÍSICO
+   T_eq = (m_o·c_o·T_o + m_a·c_a·T_a) / (m_o·c_o + m_a·c_a)
    ============================================================ */
 function equilibriumTemp(cObj){
   const {massObj, tempObj, massWater, tempWater} = state;
@@ -513,26 +493,135 @@ function equilibriumTemp(cObj){
 }
 
 /* ============================================================
-   MATERIAL DESCONOCIDO ALEATORIO
+   MATERIAL DESCONOCIDO + RUIDO EXPERIMENTAL
    ============================================================ */
 let unknownMaterial = null;
+let measuredTeq = null;   // T_eq con ruido experimental (±1.5 %)
+let trueTeq = null;       // T_eq exacta
 
 function pickUnknown(){
   unknownMaterial = MATERIALS[Math.floor(Math.random()*MATERIALS.length)];
-  // Colores visuales
   const colors = {
-    'Aluminio':'#b8b8b8','Cobre':'#b87333','Hierro':'#555',
-    'Plomo':'#4a4a4a','Oro':'#ffd700','Plata':'#c0c0c0',
-    'Zinc':'#a8b0b8','Estaño':'#b0b8c0','Vidrio':'#a8d8e8',
-    'Hielo':'#b0e0ff','Granito':'#8a7a6a','Madera':'#8b5a2b',
-    'Agua':'#4fa8ff','Alcohol':'#e0e0ff','Glicerina':'#d0e0f0'
+    'Aluminio':'#b8b8b8','Cobre':'#b87333','Hierro':'#555','Plomo':'#4a4a4a',
+    'Oro':'#ffd700','Plata':'#c0c0c0','Zinc':'#a8b0b8','Estaño':'#b0b8c0',
+    'Vidrio':'#a8d8e8','Granito':'#8a7a6a','Madera':'#8b5a2b','Glicerina':'#d0e0f0'
   };
   $('object').style.background =
     `radial-gradient(circle at 30% 30%, ${colors[unknownMaterial.name]||'#c0c0c0'}, #333)`;
 }
 
 /* ============================================================
-   SIMULACIÓN — ANIMACIÓN Y CÁLCULO
+   GRÁFICAS (Chart.js)
+   ============================================================ */
+let chartTemp, chartEnergy, chartCurve;
+
+const chartCommonOpts = {
+  responsive:true, maintainAspectRatio:false,
+  plugins:{
+    legend:{labels:{color:'#e8ecf5', font:{size:11}}},
+    tooltip:{
+      backgroundColor:'rgba(10,14,39,.95)', borderColor:'#00e5ff', borderWidth:1,
+      titleColor:'#00e5ff', bodyColor:'#e8ecf5'
+    }
+  },
+  scales:{
+    x:{ ticks:{color:'#8a95b0',font:{size:10}}, grid:{color:'rgba(255,255,255,.06)'} },
+    y:{ ticks:{color:'#8a95b0',font:{size:10}}, grid:{color:'rgba(255,255,255,.06)'} }
+  }
+};
+
+function initCharts(){
+  // Gráfica 1: Temperaturas vs tiempo
+  chartTemp = new Chart($('chartTemp'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[
+        {label:'T agua (°C)', data:[], borderColor:'#1e90ff',
+         backgroundColor:'rgba(30,144,255,.15)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'T objeto (°C)', data:[], borderColor:'#ff4500',
+         backgroundColor:'rgba(255,69,0,.10)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'T equilibrio (teórica)', data:[], borderColor:'#00e5ff',
+         borderDash:[6,4], pointRadius:0, borderWidth:1.5, fill:false}
+      ]
+    },
+    options: {...chartCommonOpts,
+      scales:{
+        x:{ title:{display:true,text:'Tiempo (s)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} },
+        y:{ title:{display:true,text:'Temperatura (°C)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+
+  // Gráfica 2: Balance de energía
+  chartEnergy = new Chart($('chartEnergy'), {
+    type:'bar',
+    data:{
+      labels:['Calor cedido por el objeto','Calor absorbido por el agua'],
+      datasets:[{
+        label:'|Q| (J)',
+        data:[0,0],
+        backgroundColor:['rgba(255,69,0,.7)','rgba(30,144,255,.7)'],
+        borderColor:['#ff4500','#1e90ff'],
+        borderWidth:2,
+        borderRadius:8
+      }]
+    },
+    options: {...chartCommonOpts,
+      plugins:{...chartCommonOpts.plugins, legend:{display:false}},
+      scales:{
+        x:{ ticks:{color:'#8a95b0'}, grid:{display:false} },
+        y:{ title:{display:true,text:'|Q| (J)',color:'#8a95b0'}, ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+
+  // Gráfica 3: T_eq vs c
+  chartCurve = new Chart($('chartCurve'), {
+    type:'line',
+    data:{
+      labels:[],
+      datasets:[
+        {label:'T_eq vs c del objeto', data:[], borderColor:'#00e5ff',
+         backgroundColor:'rgba(0,229,255,.10)', fill:true, tension:.3, pointRadius:0, borderWidth:2},
+        {label:'Material identificado', data:[], borderColor:'#ff2e88',
+         backgroundColor:'#ff2e88', pointRadius:7, pointHoverRadius:9, showLine:false}
+      ]
+    },
+    options: {...chartCommonOpts,
+      scales:{
+        x:{ title:{display:true,text:'Calor específico c (J/g·°C)',color:'#8a95b0'},
+            ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} },
+        y:{ title:{display:true,text:'T_eq (°C)',color:'#8a95b0'},
+            ticks:{color:'#8a95b0'}, grid:{color:'rgba(255,255,255,.06)'} }
+      }
+    }
+  });
+}
+
+function updateCurveChart(highlightC){
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const points = [];
+  for(let c = 0.05; c <= 3.0; c += 0.05){
+    const Teq = (massObj*c*tempObj + massWater*C_WATER*tempWater)
+              / (massObj*c + massWater*C_WATER);
+    points.push({x:+c.toFixed(2), y:+Teq.toFixed(2)});
+  }
+  chartCurve.data.datasets[0].data = points;
+  chartCurve.data.datasets[1].data = [{x:+highlightC.toFixed(3), y:+equilibriumTemp(highlightC).toFixed(2)}];
+  chartCurve.update('none');
+}
+
+function updateTempChart(tArr, tWaterArr, tObjArr, Teq){
+  chartTemp.data.labels = tArr.map(t=>t.toFixed(1));
+  chartTemp.data.datasets[0].data = tWaterArr;
+  chartTemp.data.datasets[1].data = tObjArr;
+  chartTemp.data.datasets[2].data = tArr.map(()=>Teq);
+  chartTemp.update('none');
+}
+
+/* ============================================================
+   SIMULACIÓN
    ============================================================ */
 let animating = false;
 
@@ -540,25 +629,61 @@ function simulate(){
   if(animating || state.simulated) return;
   animating = true;
 
-  const cObj = unknownMaterial.c;
-  const Teq  = equilibriumTemp(cObj);
+  const cObjTrue = unknownMaterial.c;
+  trueTeq = equilibriumTemp(cObjTrue);
 
+  // Añadimos ruido experimental: la T_eq "medida" fluctúa ±1.5 %
+  const noise = (Math.random() - 0.5) * 0.03; // ±1.5 %
+  measuredTeq = trueTeq * (1 + noise);
+
+  // Calor específico medido a partir de la T_eq medida
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const cObjMeasured = (massWater * C_WATER * (measuredTeq - tempWater))
+                     / (massObj * (tempObj - measuredTeq));
+
+  // Actualizar sliders/estado visual
   $('btnSimulate').disabled = true;
   $('steam').classList.add('active');
   $('object').classList.add('hot');
 
-  // Animación de temperatura del termómetro
-  animateThermometer(state.tempWater, Teq);
+  // === Gráfica 1: curvas de temperatura vs tiempo (relajación exponencial) ===
+  const tArr = [], twArr = [], toArr = [];
+  const N = 60;
+  const tau = 25; // constante de tiempo (s)
+  for(let i = 0; i <= N; i++){
+    const t = i * (3*tau)/N;
+    const frac = 1 - Math.exp(-t/tau); // 0 → 1
+    tArr.push(t);
+    twArr.push(+(tempWater + (measuredTeq - tempWater)*frac).toFixed(2));
+    toArr.push(+(tempObj   + (measuredTeq - tempObj)*frac).toFixed(2));
+  }
+  updateTempChart(tArr, twArr, toArr, measuredTeq);
 
-  // Animación del agua (cambio de color según temperatura)
-  const t = (Teq - 20)/80; // normalizado 0-1
-  const hue = 210 - t*180; // azul (210) → rojo (30)
+  // === Gráfica 2: balance de energía ===
+  const Qwater  = massWater * C_WATER * (measuredTeq - tempWater);
+  const Qobject = massObj * cObjMeasured * (tempObj - measuredTeq);
+  chartEnergy.data.datasets[0].data = [+Qobject.toFixed(2), 0];
+  chartEnergy.data.datasets[1].data = [0, +Qwater.toFixed(2)];
+  chartEnergy.data.datasets[0].data = [+Qobject.toFixed(2), +Qwater.toFixed(2)];
+  chartEnergy.data.datasets[0].backgroundColor = ['rgba(255,69,0,.7)','rgba(30,144,255,.7)'];
+  chartEnergy.data.datasets[0].borderColor = ['#ff4500','#1e90ff'];
+  chartEnergy.update('none');
+
+  // === Gráfica 3 ===
+  updateCurveChart(cObjMeasured);
+
+  // === Animación visual del termómetro ===
+  animateThermometer(tempWater, measuredTeq);
+
+  // Color del agua según temperatura
+  const tNorm = Math.min(1, Math.max(0, (measuredTeq - 20)/80));
+  const hue = 210 - tNorm*180;
   $('water').style.background =
     `linear-gradient(180deg, hsla(${hue},80%,55%,.55), hsla(${hue},80%,45%,.85))`;
 
-  // Mostrar resultado tras animación
   setTimeout(()=>{
-    showResult(cObj);
+    showResult(cObjMeasured);
+    showSteps(cObjMeasured, measuredTeq, Qwater, Qobject);
     $('steam').classList.remove('active');
     state.simulated = true;
     animating = false;
@@ -570,18 +695,15 @@ function animateThermometer(from, to){
   const label = $('thermoLabel');
   const start = performance.now();
   const duration = 3000;
-  // Rango visual: 0 °C -> 0%, 150 °C -> 100%
   const toPct = v => Math.min(100, Math.max(0, (v/150)*100));
-
   function frame(now){
     const p = Math.min(1, (now-start)/duration);
-    const ease = 1 - Math.pow(1-p, 3); // easeOutCubic
+    const ease = 1 - Math.pow(1-p, 3);
     const current = from + (to-from)*ease;
     fill.style.height = toPct(current)+'%';
     label.textContent = current.toFixed(1)+' °C';
-    if(p < 1){ requestAnimationFrame(frame); }
+    if(p < 1) requestAnimationFrame(frame);
     else{
-      // Estado final: color del termómetro según temperatura
       const hue = 210 - Math.min(1,(to-20)/80)*180;
       fill.style.background =
         `linear-gradient(180deg, hsl(${hue},90%,55%), hsl(${hue},90%,45%))`;
@@ -591,22 +713,19 @@ function animateThermometer(from, to){
 }
 
 /* ============================================================
-   IDENTIFICACIÓN DEL MATERIAL
+   IDENTIFICACIÓN
    ============================================================ */
 function identifyMaterial(c){
-  // Distancia relativa mínima
   let best = null, bestDist = Infinity;
   MATERIALS.forEach(m=>{
     const d = Math.abs(m.c - c)/m.c;
     if(d < bestDist){ bestDist = d; best = m; }
   });
-
-  let conf, confClass;
-  if(bestDist < 0.02){ conf = 'Coincidencia exacta'; }
-  else if(bestDist < 0.08){ conf = 'Alta coincidencia'; }
-  else if(bestDist < 0.20){ conf = 'Coincidencia moderada'; }
-  else { conf = 'Coincidencia baja'; }
-
+  let conf;
+  if(bestDist < 0.03)      conf = 'Coincidencia excelente';
+  else if(bestDist < 0.08) conf = 'Alta coincidencia';
+  else if(bestDist < 0.20) conf = 'Coincidencia moderada';
+  else                     conf = 'Coincidencia baja';
   return {material:best, dist:bestDist, confidence:conf};
 }
 
@@ -615,13 +734,84 @@ function showResult(c){
   $('cValue').textContent = c.toFixed(3);
   $('matchName').textContent = `${id.material.emoji} ${id.material.name}`;
   $('matchDesc').textContent = id.material.desc;
-  $('matchConf').textContent = `${id.confidence} · error ${(id.dist*100).toFixed(1)}%`;
+  $('matchConf').textContent = `${id.confidence} · error relativo ${(id.dist*100).toFixed(2)}%`;
   $('result').classList.add('show');
 
-  // Resaltar fila en la tabla
   document.querySelectorAll('#refBody tr').forEach(tr=>{
     tr.classList.toggle('highlight', tr.dataset.name === id.material.name);
   });
+
+  // Desplazar suavemente a los pasos
+  setTimeout(()=>$('steps').scrollIntoView({behavior:'smooth', block:'start'}), 200);
+}
+
+/* ============================================================
+   EXPLICACIÓN PASO A PASO
+   ============================================================ */
+function showSteps(cObj, Teq, Qwater, Qobject){
+  const {massObj, tempObj, massWater, tempWater} = state;
+  const cWater = C_WATER;
+
+  // Paso 3: sustitución numérica
+  $('step3Body').innerHTML = `
+    Con los datos del experimento:
+    <span class="math">
+      m<sub>o</sub> = ${massObj} g &nbsp;|&nbsp; c<sub>o</sub> = ? &nbsp;|&nbsp; T<sub>o</sub> = ${tempObj} °C
+    </span>
+    <span class="math">
+      m<sub>a</sub> = ${massWater} g &nbsp;|&nbsp; c<sub>a</sub> = ${cWater} J/g·°C &nbsp;|&nbsp; T<sub>a</sub> = ${tempWater} °C
+    </span>
+    <span class="math">
+      T<sub>eq</sub> (medida) = <span class="hl">${Teq.toFixed(2)} °C</span>
+    </span>
+  `;
+
+  // Paso 4: despeje de Teq
+  $('stepTeqFormula').innerHTML =
+    `T<sub>eq</sub> = ( m<sub>o</sub>·c<sub>o</sub>·T<sub>o</sub> + m<sub>a</sub>·c<sub>a</sub>·T<sub>a</sub> ) / ( m<sub>o</sub>·c<sub>o</sub> + m<sub>a</sub>·c<sub>a</sub> )`;
+  $('stepTeqValue').innerHTML =
+    `T<sub>eq</sub> = ( ${massObj}·${cObj.toFixed(3)}·${tempObj} + ${massWater}·${cWater}·${tempWater} )
+     / ( ${massObj}·${cObj.toFixed(3)} + ${massWater}·${cWater} )
+     = <span class="hl">${Teq.toFixed(2)} °C</span>`;
+
+  // Paso 5: cálculo de c
+  const num = massWater * cWater * (Teq - tempWater);
+  const den = massObj * (tempObj - Teq);
+  $('stepCValue').innerHTML =
+    `c<sub>o</sub> = [ ${massWater} · ${cWater} · (${Teq.toFixed(2)} − ${tempWater}) ]
+     / [ ${massObj} · (${tempObj} − ${Teq.toFixed(2)}) ]<br>
+     c<sub>o</sub> = ${num.toFixed(2)} / ${den.toFixed(2)}
+     = <span class="hl">${(num/den).toFixed(3)} J/g·°C</span>`;
+
+  // Paso 6: balance energético
+  $('step6Body').innerHTML = `
+    <strong>Calor absorbido por el agua:</strong>
+    <span class="math">
+      Q<sub>a</sub> = m<sub>a</sub>·c<sub>a</sub>·(T<sub>eq</sub> − T<sub>a</sub>)
+      = ${massWater} · ${cWater} · (${Teq.toFixed(2)} − ${tempWater})
+      = <span class="hl">+${Qwater.toFixed(2)} J</span>
+    </span>
+    <strong>Calor cedido por el objeto:</strong>
+    <span class="math">
+      Q<sub>o</sub> = m<sub>o</sub>·c<sub>o</sub>·(T<sub>eq</sub> − T<sub>o</sub>)
+      = ${massObj} · ${cObj.toFixed(3)} · (${Teq.toFixed(2)} − ${tempObj})
+      = <span class="hl">−${Qobject.toFixed(2)} J</span>
+    </span>
+    <strong>Comprobación:</strong> Q<sub>a</sub> + Q<sub>o</sub> =
+    ${Qwater.toFixed(2)} + (−${Qobject.toFixed(2)}) ≈ 0 J
+    ✔ Se cumple la conservación de la energía (dentro del ruido experimental).
+    <br><br>
+    <em>Nota:</em> el ruido experimental (±1.5 %) introduce pequeñas diferencias
+    entre ambos calores; en un calorímetro real también aparecen por pérdidas
+    al ambiente y errores de lectura.
+  `;
+
+  $('steps').classList.add('show');
+
+  // Forzar re-render de MathJax en el bloque
+  if(window.MathJax && window.MathJax.typesetPromise){
+    window.MathJax.typesetPromise([$('steps')]).catch(()=>{});
+  }
 }
 
 /* ============================================================
@@ -631,6 +821,7 @@ function resetSimulation(randomize = true){
   state.simulated = false;
   $('btnSimulate').disabled = false;
   $('result').classList.remove('show');
+  $('steps').classList.remove('show');
   $('object').classList.remove('hot','cold');
   $('steam').classList.remove('active');
   $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
@@ -640,9 +831,23 @@ function resetSimulation(randomize = true){
     'linear-gradient(180deg,rgba(30,144,255,.55),rgba(30,144,255,.85))';
   document.querySelectorAll('#refBody tr').forEach(tr=>tr.classList.remove('highlight'));
 
-  if(randomize){
-    pickUnknown();
+  // Limpiar gráficas
+  if(chartTemp){
+    chartTemp.data.labels = [];
+    chartTemp.data.datasets.forEach(d=>d.data=[]);
+    chartTemp.update('none');
   }
+  if(chartEnergy){
+    chartEnergy.data.datasets[0].data = [0,0];
+    chartEnergy.update('none');
+  }
+  if(chartCurve){
+    chartCurve.data.datasets[0].data = [];
+    chartCurve.data.datasets[1].data = [];
+    chartCurve.update('none');
+  }
+
+  if(randomize) pickUnknown();
 }
 
 /* ============================================================
@@ -650,7 +855,7 @@ function resetSimulation(randomize = true){
    ============================================================ */
 function buildTable(){
   const tbody = $('refBody');
-  // Ordenar por calor específico
+  tbody.innerHTML = '';
   [...MATERIALS].sort((a,b)=>a.c-b.c).forEach(m=>{
     const tr = document.createElement('tr');
     tr.dataset.name = m.name;
@@ -660,19 +865,16 @@ function buildTable(){
 }
 
 /* ============================================================
-   EVENTOS
+   EVENTOS E INICIALIZACIÓN
    ============================================================ */
 $('btnSimulate').addEventListener('click', simulate);
 $('btnReset').addEventListener('click', ()=>resetSimulation(true));
 
-/* ============================================================
-   INICIALIZACIÓN
-   ============================================================ */
 function init(){
   buildTable();
+  initCharts();
   pickUnknown();
   resetSimulation(false);
-  // Estado inicial del termómetro
   $('thermoFill').style.height = ((state.tempWater/150)*100)+'%';
   $('thermoFill').style.background = 'linear-gradient(180deg,#1e90ff,#0a5ab0)';
 }
